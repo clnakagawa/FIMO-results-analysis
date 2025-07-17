@@ -1,0 +1,128 @@
+---
+title: "FIMO Results Analysis for ABC Predicted Enhancers"
+output: html_document
+---
+
+```{r setup, include = F}
+knitr::opts_chunk$set(message = F, warning = F)
+```
+
+```{r libaries, include = F}
+library(data.table)
+library(patchwork)
+source('parseGff.R')
+source('tfCoverage.R')
+```
+
+```{r make_controls, include = F}
+# make control bed files for comparison of coverage
+# 10 random upstream 500bp regions 
+# starts <- sample(seq(from = 117404938, to = 117470238, by = 500), 10, replace=F)
+# contBed <- data.table(chr = rep("chr7", 10),
+#                       start = starts,
+#                       end = starts + 500,
+#                       name = rep("control", 10))
+# fwrite(contBed, 'controlRegs.bed', quote = F, row.names = F, col.names = F, sep = '\t')
+
+```
+
+```{r load_fimo, include = F}
+# results with Hv13
+# JASPAR results were noisy and redundant
+bsHv <- as.data.table(gff2df('data/FIMO/basalHv13.gff', hasAlias = F))
+clHv <- as.data.table(gff2df('data/FIMO/ciliatedHv13.gff', hasAlias = F))
+scHv <- as.data.table(gff2df('data/FIMO/secretoryHv13.gff', hasAlias = F))
+contHv <- as.data.table(gff2df('data/FIMO/controlRegs.gff', hasAlias = F))
+```
+
+```{r load_predictions, include = F}
+# col names
+abcCols <- c("chr", "start", "end", "name",
+             "class", "activity_base", "activity_base_enh",
+             "activity_base_squared_enh", "normalized_atac_enh",
+             "enh_midpoint", "enh_idx", "TargetGene", "TargetGeneTSS",
+             "TargetGeneExpression", "TargetGenePromoterActivityQuantile",
+             "TargetGeneIsExpressed", "TargetGeneEnsembl_ID", "normalized_atac_prom",
+             "gene_idx", "distance", "isSelfPromoter", "powerlaw_contact", 
+             "powerlaw_contact_reference", "ABC.Score.Numerator", "ABC.Score",
+             "powerlaw.Score.Numerator", "powerlaw.Score", "CellType")
+
+# predictions by cell type
+bsPred <- fread('data/predictions/basalPredictions.tsv', col.names = abcCols)
+clPred <- fread('data/predictions/ciliatedPredictions.tsv', col.names = abcCols)
+scPred <- fread('data/predictions/secretoryPredictions.tsv', col.names = abcCols)
+
+# load control bed
+contBed <- fread('controlRegs.bed', col.names = c('chr', 'start', 'end', 'name'))
+```
+
+## Plotting Coverage for Predicted Enhancers
+
+Here we compare FIMO results in different enhancer regions and quantify overall binding site potential by computing "coverage", i.e. what % of the region is covered by a predicted binding site.
+
+```{r plot_example}
+# same as chunk above but with function
+multiCovplot <- function(predictions, fimores) {
+  plts <- lapply(1:nrow(predictions), function(x) gffCov(fimores, qCut = 0.05,
+                                                         bSize = 20, startLim = predictions[x]$start,
+                                                         endLim = predictions[x]$end,
+                                                         title = predictions[x]$name))
+  return(wrap_plots(plts))
+} 
+
+multiCovplot(bsPred, bsHv)
+```
+
+## Control Plot
+Coverage for 10 randomly selected 500bp regions in the upstream CFTR region (between promoter and CTCF site TAD boundary)
+```{r control_plot}
+multiCovplot(contBed, contHv)
+```
+
+```{r make_plots, include = F}
+ggsave('plots/basalHvCovplot.png', multiCovplot(bsPred, bsHv))
+ggsave('plots/ciliatedHvCovplot.png', multiCovplot(clPred, clHv))
+ggsave('plots/secretoryHvCovplot.png', multiCovplot(scPred, scHv))
+ggsave('plots/controlRegsCovplot.png', multiCovplot(contBed, contHv))
+```
+
+```{r cov_tables, include = F}
+# add coverage column to samples
+bsPred[, coverage := mapply(getOverlap, start, end, 
+                            MoreArgs=list(mergeRanges(bsHv[qvalue < 0.05])))]
+clPred[, coverage := mapply(getOverlap, start, end, 
+                            MoreArgs=list(mergeRanges(clHv[qvalue < 0.05])))]
+scPred[, coverage := mapply(getOverlap, start, end, 
+                            MoreArgs=list(mergeRanges(scHv[qvalue < 0.05])))]
+contBed[, coverage := mapply(getOverlap, start, end,
+                             MoreArgs=list(mergeRanges(contHv[qvalue < 0.05])))]
+```
+
+## TF Motifs Found in Specific Enhancer Regions
+
+Here we look at the FIMO results for each enhancer region. The example below shows the number of sites as well as the individual transcription factors with predicted sites given a q-value threshold of 0.05. The region used as an example here is the -44kb upstream enhancer site found in the basal cell scATAC data.
+
+```{r inspect_motifs}
+# get unique tfs from given range
+s <- 117479505
+e <- 117480212
+fltr <- bsHv[start < e & end > s & qvalue < 0.05]
+nrow(fltr)
+unique(fltr$Alias)
+```
+
+# Variations in q-value vs p-value, FIMO score
+
+```{r qval_testing}
+# p val vs q val
+ggplot(bsHv, aes(x=-log10(pvalue), y=-log10(qvalue))) + geom_point() + ggtitle('p-val vs q-val for FIMO results')
+ggplot(bsHv, aes(x=score, y=-log10(qvalue))) + geom_point() + ggtitle('score vs q-val for FIMO results')
+ggplot(bsHv, aes(x=score, y=-log10(pvalue))) + geom_point() + ggtitle('score vs p-val for FIMO results')
+```
+
+```{r length_norm}
+bsHv[, length := end - start]
+ggplot(bsHv, aes(x=-log10(pvalue), y=-log10(qvalue), color=length)) + geom_point() + ggtitle('p-val vs q-val for FIMO results')
+
+head(bsHv[order(length, decreasing = T), .(Alias, pvalue, qvalue, sequence)], 20)
+```
