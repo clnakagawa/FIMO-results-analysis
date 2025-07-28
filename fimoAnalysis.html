@@ -449,6 +449,29 @@ ggplot(bsHv, aes(x=-log10(pvalue), y=-log10(qvalue), color=length)) + geom_point
 ## 20:  ZN565 1.34e-05 5.14e-02 ATCAGCCATCTCCCCAGGGAGGCCTGGGCCC
 ##      Alias   pvalue   qvalue                        sequence</code></pre>
 </div>
+<div id="adding-chip-atlas-data" class="section level1">
+<h1>Adding ChIP-Atlas Data</h1>
+<pre class="r"><code>valid &lt;- fread(&#39;validated.bed&#39;)
+head(valid)</code></pre>
+<pre><code>##        V1        V2        V3     V4
+##    &lt;char&gt;     &lt;int&gt;     &lt;int&gt; &lt;char&gt;
+## 1:   chr7 117478290 117478301   SPI1
+## 2:   chr7 117478288 117478301   SPI1
+## 3:   chr7 117435650 117435661  NFKB1
+## 4:   chr7 117435650 117435661  NFKB1
+## 5:   chr7 117281889 117281909    WT1
+## 6:   chr7 117281594 117281604  SMAD3</code></pre>
+<pre class="r"><code>print(unique(valid$V4))</code></pre>
+<pre><code>##  [1] &quot;SPI1&quot;   &quot;NFKB1&quot;  &quot;WT1&quot;    &quot;SMAD3&quot;  &quot;ASCL1&quot;  &quot;NFKB2&quot;  &quot;JUND&quot;   &quot;JUNB&quot;  
+##  [9] &quot;CTCF&quot;   &quot;PPARG&quot;  &quot;FOSL1&quot;  &quot;KMT2A&quot;  &quot;TEAD4&quot;  &quot;FOXA2&quot;  &quot;FOXA1&quot;  &quot;ZNF83&quot; 
+## [17] &quot;ATF3&quot;   &quot;HNF4A&quot;  &quot;MAZ&quot;    &quot;NR1H3&quot;  &quot;FOS&quot;    &quot;IRF9&quot;   &quot;TEAD1&quot;  &quot;BATF3&quot; 
+## [25] &quot;GATA6&quot;  &quot;ATF2&quot;   &quot;SP1&quot;    &quot;CEBPB&quot;  &quot;NR5A2&quot;  &quot;RELB&quot;   &quot;ESR2&quot;   &quot;STAT1&quot; 
+## [33] &quot;GATA3&quot;  &quot;IRF1&quot;   &quot;NFE2&quot;   &quot;KLF4&quot;   &quot;FOSL2&quot;  &quot;BATF&quot;   &quot;GLIS1&quot;  &quot;JUN&quot;   
+## [41] &quot;STAT2&quot;  &quot;FLI1&quot;   &quot;FOXL2&quot;  &quot;GRHL2&quot;  &quot;ELF3&quot;   &quot;EHF&quot;    &quot;MAFK&quot;   &quot;HLF&quot;   
+## [49] &quot;HNF1B&quot;  &quot;IRF4&quot;   &quot;SOX2&quot;   &quot;E2F3&quot;   &quot;TFAP4&quot;  &quot;GATA4&quot;  &quot;NFIC&quot;   &quot;ZBTB40&quot;
+## [57] &quot;MITF&quot;   &quot;KLF5&quot;   &quot;CDX2&quot;   &quot;CEBPA&quot;  &quot;CEBPG&quot;  &quot;NR1H2&quot;  &quot;ATF4&quot;   &quot;MYC&quot;   
+## [65] &quot;RUNX1&quot;  &quot;CREB1&quot;  &quot;MAFG&quot;   &quot;RXRA&quot;   &quot;MAX&quot;</code></pre>
+</div>
 
 
 

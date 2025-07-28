@@ -126,3 +126,92 @@ ggplot(bsHv, aes(x=-log10(pvalue), y=-log10(qvalue), color=length)) + geom_point
 
 head(bsHv[order(length, decreasing = T), .(Alias, pvalue, qvalue, sequence)], 20)
 ```
+
+# Adding ChIP-Atlas Data
+
+```{r check_peaks, eval=F, include=F}
+# integrate ChIP-seq peak data
+# load and merge tables
+peakFiles <- list.files(path = 'data/ChIPAtlas/peaks', pattern = '.bed', full.names = T)
+peaks <- lapply(peakFiles, fread)
+peaks <- rbindlist(peaks)
+
+# limit to treatment only
+peaks[is.name(treatment)]$treatment <- ""
+negList <- c("no treatment", "untreated", "non-treated",
+             "non-treatment", "no", "", "control", "not applicable", 
+             "not applicable.", "ctrl", "normal cells", "normal media conditions",
+             "no treat", "na", "n/a", "control no treatment", "control condition")
+peaks <- peaks[tolower(treatment) %in% negList]
+
+head(peaks)
+```
+
+```{r merge_regs, eval=F, include=F}
+# find peaks only in predicted regions
+allPreds <- rbindlist(list(bsPred, clPred, scPred))
+allPreds <- mergeRanges(allPreds[,.(chr, start, end)])
+head(allPreds)
+```
+
+```{r peaks_in_regs, eval=F, include=F}
+# add an id column to preds
+allPreds$id <- 1:nrow(allPreds)
+
+# add a corresponding column to peaks
+peaks$regID <- 0
+
+for (i in 1:nrow(allPreds)) {
+  row <- allPreds[i]
+  peaks[start < row$end & end > row$start]$regID <- row$id
+}
+
+# make list of names
+expList <- unique(peaks$Name)
+tfList <- unique(peaks$factor)
+
+# get rid of peaks with regID 0
+peaks <- peaks[regID != 0]
+```
+
+```{r merge_fimo, eval=F, include=F}
+# merge FIMO results
+bsHv[, length := NULL]
+# TODO rework code because this should've been this from the start
+allHv <- rbindlist(list(bsHv, scHv, clHv))
+allHv <- allHv[order(qvalue)]
+# allHv <- allHv[qvalue < 0.05]
+head(allHv)
+fwrite(allHv[,.(seqname, start, end, Alias)], 'mergedHv.bed', quote = F, col.names = F, row.names = F, sep = '\t')
+```
+
+```{r site_validations, eval=F, include=F}
+chipTfs <- intersect(tfList, allHv$Alias)
+chipHv <- allHv[Alias %in% chipTfs]
+chipHv$numPeaks <- 0
+
+for (i in 1:nrow(chipHv)) {
+  row <- chipHv[i,]
+  chipHv[i]$numPeaks <- nrow(peaks[start < row$end & end > row$start & factor == row$Alias])
+}
+
+fwrite(chipHv[numPeaks != 0,.(seqname, start, end, Alias)], 'validated.bed', quote = F, col.names = F, row.names = F, sep = '\t')
+```
+
+```{r inspect_valid}
+valid <- fread('validated.bed')
+head(valid)
+print(unique(valid$V4))
+```
+
+```{r}
+source('tfCoverage.R')
+colnames(valid) <- c('chr', 'start', 'end', 'tf')
+valTF <- unique(valid$tf)
+validMerge <- rbindlist(lapply(valTF, function(x) mergeRanges(valid[tf==x])))
+```
+
+```{r}
+head(validMerge)
+fwrite(validMerge, 'validatedMerge.bed', quote=F, row.names=F, col.names=F, sep='\t')
+```

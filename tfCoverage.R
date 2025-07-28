@@ -10,9 +10,14 @@ source("C:/Users/cnakagawa/OneDrive - Cystic Fibrosis Foundation/Desktop/tfbs da
 
 # helper function for row merging
 mergeRanges <- function(dt) {
+  if (nrow(dt) < 2) {
+    return(dt)
+  }
+  
   setorder(dt, start, end)  # Sort by start and end
   
   merged <- dt[1]  # Initialize with the first range
+  
   for (i in 2:nrow(dt)) {
     last <- merged[.N]
     current <- dt[i]
